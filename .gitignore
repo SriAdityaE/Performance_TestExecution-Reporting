@@ -1,0 +1,39 @@
+# Environment
+.env
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Test artifacts — never commit real JTL or result files
+*.jtl
+results/
+temp_results/
+DAILY_REPORT_*.html
+
+# Logs
+*.log
+*.tmp
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Node (if VS Code extension added later)
+node_modules/
+*.tsbuildinfo
+*.vsix
