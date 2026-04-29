@@ -59,7 +59,7 @@
 
 **Requirements:**
 - `.env` file NEVER committed — always in `.gitignore`
-- No UNC paths hardcoded: `\\vm-hostname\PerfTest` must come from `PERF_SHARED_ROOT` env var
+- No shared-root paths hardcoded: use env vars (`PERF_SHARED_ROOT`) for UNC fallback and inputs
 - No webhook URLs in code
 - No Windows user paths (C:\Users\...) in code
 - `.gitignore` created before first commit, comprehensive

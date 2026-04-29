@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 _TEST_NAME_RE = re.compile(r"^[A-Za-z0-9_\-]{1,100}$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _NOTIFICATION_CHANNELS = {"terminal", "teams", "slack", "both"}
+_WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
 
 # ---------------------------------------------------------------------------
@@ -34,24 +35,24 @@ class StartTestExecutionInput(BaseModel):
             hyphens only (max 100 chars). Example: ``GET_RO_Number_Load``.
         script_path_on_vm: Absolute path to the JMeter .jmx script on the remote VM.
             Must match the ``ALLOWED_VM_SCRIPT_PREFIX`` environment variable prefix.
-            Example: ``C:\\PerfTests\\Scripts\\GET_RO_Number.jmx``.
-        shared_root: UNC path to the shared folder accessible by both machines.
-            Example: ``\\\\vm-host\\PerfTest``.
+            Example: ``L:\\Latest_Script_Sqlserver\\Xinsepect_RDS_SQL&BabelfishTestplan_Latest_07_21.jmx``.
+        shared_root: Shared path root for queue/results lookup.
+            Example: ``L:\\Testlogfiles\\MCP_Testlogfiles_entry``.
         notification_channel: Destination for lifecycle notifications.
             One of ``terminal`` | ``teams`` | ``slack`` | ``both``.
 
     Example:
         >>> inp = StartTestExecutionInput(
         ...     test_name="GET_RO_Number_Load",
-        ...     script_path_on_vm="C:\\\\PerfTests\\\\GET_RO_Number.jmx",
-        ...     shared_root="\\\\\\\\vm-host\\\\PerfTest",
+        ...     script_path_on_vm="L:\\\\Latest_Script_Sqlserver\\\\Xinsepect_RDS_SQL&BabelfishTestplan_Latest_07_21.jmx",
+        ...     shared_root="L:\\\\Testlogfiles\\\\MCP_Testlogfiles_entry",
         ...     notification_channel="terminal",
         ... )
     """
 
     test_name: str = Field(..., description="Logical name for the test (alphanumeric, _ and - only, max 100 chars)")
     script_path_on_vm: str = Field(..., description="Absolute path to JMX script on VM")
-    shared_root: str = Field(..., description="UNC path to the shared results folder")
+    shared_root: str = Field(..., description="UNC path or VM-local drive path to shared results root")
     notification_channel: str = Field(default="terminal", description="terminal | teams | slack | both")
 
     @field_validator("test_name")
@@ -75,10 +76,10 @@ class StartTestExecutionInput(BaseModel):
     @field_validator("shared_root")
     @classmethod
     def validate_unc_path(cls, v: str) -> str:
-        """Basic UNC path format check — must start with \\\\ (two backslashes)."""
-        if not v.startswith("\\\\") and not v.startswith("//"):
+        """Allow UNC paths and Windows drive paths (e.g., L:\\...)."""
+        if not (v.startswith("\\\\") or v.startswith("//") or _WINDOWS_DRIVE_RE.match(v)):
             raise ValueError(
-                f"shared_root must be a UNC path starting with '\\\\\\\\'. Got: '{v}'"
+                f"shared_root must be a UNC path ('\\\\server\\share') or Windows drive path ('L:\\...'). Got: '{v}'"
             )
         return v
 
@@ -115,24 +116,26 @@ class GetExecutionStatusInput(BaseModel):
 
     Args:
         job_id: Unique job identifier previously returned by start_test_execution.
-        shared_root: UNC path to the shared folder (same value used at job creation).
+        shared_root: UNC path or VM-local drive path (same value used at job creation).
 
     Example:
         >>> inp = GetExecutionStatusInput(
         ...     job_id="14-30-22_GET_RO_Number_abc123",
-        ...     shared_root="\\\\\\\\vm-host\\\\PerfTest",
+        ...     shared_root="L:\\\\Testlogfiles\\\\MCP_Testlogfiles_entry",
         ... )
     """
 
     job_id: str = Field(..., description="Job identifier returned by start_test_execution")
-    shared_root: str = Field(..., description="UNC path to the shared results folder")
+    shared_root: str = Field(..., description="UNC path or VM-local drive path to shared results root")
 
     @field_validator("shared_root")
     @classmethod
     def validate_unc_path(cls, v: str) -> str:
-        """Basic UNC path format check."""
-        if not v.startswith("\\\\") and not v.startswith("//"):
-            raise ValueError(f"shared_root must be a UNC path starting with '\\\\\\\\'. Got: '{v}'")
+        """Allow UNC paths and Windows drive paths (e.g., L:\\...)."""
+        if not (v.startswith("\\\\") or v.startswith("//") or _WINDOWS_DRIVE_RE.match(v)):
+            raise ValueError(
+                f"shared_root must be a UNC path ('\\\\server\\share') or Windows drive path ('L:\\...'). Got: '{v}'"
+            )
         return v
 
 
@@ -193,21 +196,21 @@ class GenerateDailyReportInput(BaseModel):
     """Input schema for generate_daily_report MCP tool.
 
     Args:
-        shared_root: UNC path to the shared folder.
+        shared_root: UNC path or VM-local drive path to the shared folder.
         date: Date to report on in YYYY-MM-DD format.
         test_name: Optional filter to a specific test name. Pass None for all tests.
         notification_channel: Destination for report delivery notification.
 
     Example:
         >>> inp = GenerateDailyReportInput(
-        ...     shared_root="\\\\\\\\vm-host\\\\PerfTest",
+        ...     shared_root="L:\\\\Testlogfiles\\\\MCP_Testlogfiles_entry",
         ...     date="2026-04-29",
         ...     test_name=None,
         ...     notification_channel="terminal",
         ... )
     """
 
-    shared_root: str = Field(..., description="UNC path to the shared results folder")
+    shared_root: str = Field(..., description="UNC path or VM-local drive path to shared results root")
     date: str = Field(..., description="Reporting date in YYYY-MM-DD format")
     test_name: str | None = Field(default=None, description="Filter to specific test, or None for all")
     notification_channel: str = Field(default="terminal", description="terminal | teams | slack | both")
@@ -231,9 +234,11 @@ class GenerateDailyReportInput(BaseModel):
     @field_validator("shared_root")
     @classmethod
     def validate_unc_path(cls, v: str) -> str:
-        """Basic UNC path format check."""
-        if not v.startswith("\\\\") and not v.startswith("//"):
-            raise ValueError(f"shared_root must be a UNC path starting with '\\\\\\\\'. Got: '{v}'")
+        """Allow UNC paths and Windows drive paths (e.g., L:\\...)."""
+        if not (v.startswith("\\\\") or v.startswith("//") or _WINDOWS_DRIVE_RE.match(v)):
+            raise ValueError(
+                f"shared_root must be a UNC path ('\\\\server\\share') or Windows drive path ('L:\\...'). Got: '{v}'"
+            )
         return v
 
     @field_validator("test_name")

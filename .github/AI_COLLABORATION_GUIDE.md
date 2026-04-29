@@ -36,7 +36,7 @@ Tell AI to STOP and ask before:
 🚩 Creating a 4th MCP tool
 🚩 Using SSH, paramiko, or remote execution from MCP
 🚩 Importing boto3, azure-storage, or any cloud SDK
-🚩 Hardcoding \\vm-hostname\PerfTest path
+🚩 Hardcoding shared-root paths (VM `L:\...` or local UNC)
 🚩 Generating report in any format other than mandated 4-section format
 🚩 Skipping any terminal notification event
 🚩 Touching JMeter parameterization CSV files

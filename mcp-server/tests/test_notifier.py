@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for notifier.py.
 
 Coverage targets:
@@ -27,7 +27,7 @@ _NOTIF_KWARGS = dict(
     best_round="Round 1",
     avg_response_trend="stable",
     error_rate=0.82,
-    report_path="\\\\vm-host\\PerfTest\\results\\DAILY_REPORT_2026-04-29.html",
+    report_path="L:\\Testlogfiles\\MCP_Testlogfiles_entry\\results\\DAILY_REPORT_2026-04-29.html",
 )
 
 
@@ -149,3 +149,4 @@ class TestNotifierUnhappyPath:
         with patch("perf_mcp.notifier.requests.post", return_value=mock_resp):
             result = send_report_notification(**{**_NOTIF_KWARGS, "notification_channel": "slack"})
         assert result["slack"].delivered is True
+

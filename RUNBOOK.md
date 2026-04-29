@@ -11,7 +11,7 @@
 | Task | Command | Time |
 |------|---------|------|
 | Setup (first time) | `.\setup.ps1` | 5-10 min |
-| Start MCP Server | `uv run -p mcp-server perf-mcp` | Immediate |
+| Start MCP Server | `.\.venv\Scripts\python.exe -m perf_mcp.server` | Immediate |
 | Run All Tests | `cd mcp-server && uv run pytest -q` | 30 sec |
 | Check Git Status | `git status` | Instant |
 
@@ -117,7 +117,7 @@ Note: The `(.venv)` prefix confirms the virtual environment is active.
 ### Step 2.2: Start MCP Server
 
 ```powershell
-uv run -p mcp-server perf-mcp
+.\.venv\Scripts\python.exe -m perf_mcp.server
 ```
 
 **Expected output:**
@@ -236,8 +236,8 @@ tests/test_jtl_parser.py::TestParseJtlHappyPath::test_multi_label PASSED [X%]
 
 $job_request = @{
     test_name = "GET_RO_Number_Load"
-    script_path_on_vm = "C:\PerfTests\Scripts\GET_RO_Number.jmx"
-    shared_root = "\\vm-hostname\PerfTest"
+    script_path_on_vm = "L:\Latest_Script_Sqlserver\Xinsepect_RDS_SQL&BabelfishTestplan_Latest_07_21.jmx"
+    shared_root = "L:\Testlogfiles\MCP_Testlogfiles_entry"
     notification_channel = "terminal"
 } | ConvertTo-Json
 
@@ -248,8 +248,8 @@ Write-Host $job_request
 ```json
 {
   "test_name": "GET_RO_Number_Load",
-  "script_path_on_vm": "C:\\PerfTests\\Scripts\\GET_RO_Number.jmx",
-  "shared_root": "\\\\vm-hostname\\PerfTest",
+  "script_path_on_vm": "L:\\Latest_Script_Sqlserver\\Xinsepect_RDS_SQL&BabelfishTestplan_Latest_07_21.jmx",
+  "shared_root": "L:\\Testlogfiles\\MCP_Testlogfiles_entry",
   "notification_channel": "terminal"
 }
 ```
@@ -264,7 +264,7 @@ Write-Host $job_request
 
 $status_request = @{
     job_id = "14-30-22_GET_RO_Load_ABC123"
-    shared_root = "\\vm-hostname\PerfTest"
+    shared_root = "L:\Testlogfiles\MCP_Testlogfiles_entry"
 } | ConvertTo-Json
 
 Write-Host $status_request
@@ -274,7 +274,7 @@ Write-Host $status_request
 ```json
 {
   "job_id": "14-30-22_GET_RO_Load_ABC123",
-  "shared_root": "\\\\vm-hostname\\PerfTest"
+  "shared_root": "L:\\Testlogfiles\\MCP_Testlogfiles_entry"
 }
 ```
 
@@ -287,7 +287,7 @@ Write-Host $status_request
 # Generate report for a specific date
 
 $report_request = @{
-    shared_root = "\\vm-hostname\PerfTest"
+    shared_root = "L:\Testlogfiles\MCP_Testlogfiles_entry"
     date = "2026-04-29"
     test_name = $null
     notification_channel = "terminal"
@@ -299,7 +299,7 @@ Write-Host $report_request
 **Expected output:**
 ```json
 {
-  "shared_root": "\\\\vm-hostname\\PerfTest",
+  "shared_root": "L:\\Testlogfiles\\MCP_Testlogfiles_entry",
   "date": "2026-04-29",
   "test_name": null,
   "notification_channel": "terminal"
@@ -317,8 +317,9 @@ Write-Host $report_request
 ```bash
 # File: mcp-server/.env
 
-# Windows UNC path to shared test results folder
-PERF_SHARED_ROOT=\\vm-hostname\PerfTest
+# Local MCP-accessible UNC path to shared test results folder
+# Note: Tool input can still use VM path L:\Testlogfiles\MCP_Testlogfiles_entry
+PERF_SHARED_ROOT=\\your-vm-host\MCP_Testlogfiles_entry
 
 # Optional: Teams webhook (leave empty to skip Teams notifications)
 TEAMS_WEBHOOK_URL=https://outlook.webhook.office.com/webhookb2/YOUR-WEBHOOK-URL
@@ -335,7 +336,7 @@ NOTIFICATION_CHANNEL=terminal
 # Kill the running server (Ctrl+C in the terminal where it's running)
 
 # Restart it
-uv run -p mcp-server perf-mcp
+.\.venv\Scripts\python.exe -m perf_mcp.server
 ```
 
 ---
@@ -361,7 +362,7 @@ cd "C:\Users\erraguntlaaditya\OneDrive - Nagarro\Documents\Practice\MCPServer\Pe
 
 .\.venv\Scripts\Activate.ps1
 
-uv run -p mcp-server perf-mcp
+.\.venv\Scripts\python.exe -m perf_mcp.server
 ```
 
 **Keep this terminal open.** The server will run indefinitely.
@@ -379,8 +380,8 @@ cd "C:\Users\erraguntlaaditya\OneDrive - Nagarro\Documents\Practice\MCPServer\Pe
 # Create job JSON
 $job = @{
     test_name = "GET_RO_Number_Load"
-    script_path_on_vm = "C:\PerfTests\Scripts\GET_RO_Number.jmx"
-    shared_root = "\\vm-hostname\PerfTest"
+    script_path_on_vm = "L:\Latest_Script_Sqlserver\Xinsepect_RDS_SQL&BabelfishTestplan_Latest_07_21.jmx"
+    shared_root = "L:\Testlogfiles\MCP_Testlogfiles_entry"
     notification_channel = "terminal"
 }
 
@@ -404,7 +405,7 @@ Write-Host ($job | ConvertTo-Json)
 # Check job status
 $status = @{
     job_id = "14-30-22_GET_RO_Number_Load_ABC123"
-    shared_root = "\\vm-hostname\PerfTest"
+    shared_root = "L:\Testlogfiles\MCP_Testlogfiles_entry"
 }
 
 Write-Host ($status | ConvertTo-Json)
@@ -417,7 +418,7 @@ Write-Host ($status | ConvertTo-Json)
 ```powershell
 # Generate report for today
 $report = @{
-    shared_root = "\\vm-hostname\PerfTest"
+    shared_root = "L:\Testlogfiles\MCP_Testlogfiles_entry"
     date = (Get-Date -Format "yyyy-MM-dd")
     test_name = $null
     notification_channel = "terminal"
@@ -431,7 +432,7 @@ Write-Host ($report | ConvertTo-Json)
 [15:01:02] 📊 REPORTING STARTED — Scanning 2026-04-29 | Rounds found: 2
 [15:01:03] 📋 PARSED Round 1 — 180,240 requests | Avg: 420ms | P95: 980ms
 [15:01:04] 📋 PARSED Round 2 — 180,240 requests | Avg: 435ms | P95: 1050ms
-[15:01:05] ✅ REPORT GENERATED — Path: \\vm-host\PerfTest\results\DAILY_REPORT_2026-04-29.html
+[15:01:05] ✅ REPORT GENERATED — Path: L:\Testlogfiles\MCP_Testlogfiles_entry\results\DAILY_REPORT_2026-04-29.html
 [15:01:06] ✅ NOTIFICATION SENT — Channel: teams | Status: delivered
 ```
 
@@ -465,7 +466,7 @@ python --version
 uv run --help
 
 # Run verbose startup
-uv run -p mcp-server perf-mcp --verbose
+.\.venv\Scripts\python.exe -m perf_mcp.server
 ```
 
 ### Issue: Tests Fail
@@ -484,10 +485,10 @@ uv run pytest tests/test_jtl_parser.py::TestParseJtlHappyPath::test_single_label
 
 ```powershell
 # Verify the UNC path is reachable
-Test-Path "\\vm-hostname\PerfTest"
+Test-Path "\\your-vm-host\MCP_Testlogfiles_entry"
 
 # Mount the UNC path
-New-PSDrive -Name "PerfTest" -PSProvider FileSystem -Root "\\vm-hostname\PerfTest"
+New-PSDrive -Name "PerfTest" -PSProvider FileSystem -Root "\\your-vm-host\MCP_Testlogfiles_entry"
 
 # Verify mount
 Get-PSDrive PerfTest
@@ -575,7 +576,7 @@ Write-Host "✅ Security audit complete"
 
 # === SERVER ===
 .\.venv\Scripts\Activate.ps1                # Activate virtual environment
-uv run -p mcp-server perf-mcp               # Start MCP server
+.\.venv\Scripts\python.exe -m perf_mcp.server  # Start MCP server
 
 # === TESTING ===
 cd mcp-server && uv run pytest -q           # Run all tests

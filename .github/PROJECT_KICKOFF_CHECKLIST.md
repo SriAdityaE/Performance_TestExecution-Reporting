@@ -103,7 +103,7 @@ pip install -e ".[dev]"
 **On VM:**
 - [ ] JMeter installed at known path (e.g., `C:\apache-jmeter\bin\jmeter.bat`)
 - [ ] PowerShell 5.1+ available
-- [ ] UNC shared folder accessible (test: `Test-Path "\\vm-hostname\PerfTest"`)
+- [ ] UNC shared folder accessible (test: `Test-Path "\\your-vm-host\MCP_Testlogfiles_entry"`)
 - [ ] JMeter test scripts at known path
 
 ---
@@ -113,7 +113,7 @@ pip install -e ".[dev]"
 **Create `.env.example` (safe to commit — no real values):**
 ```env
 # Required
-PERF_SHARED_ROOT=\\vm-hostname\PerfTest
+PERF_SHARED_ROOT=\\your-vm-host\MCP_Testlogfiles_entry
 
 # Optional — for Teams notifications
 TEAMS_WEBHOOK_URL=https://your-org.webhook.office.com/...
@@ -210,11 +210,11 @@ New-SmbShare -Name "PerfTest" -Path $root -FullAccess "Everyone"
 **On local machine:**
 ```powershell
 # Test UNC access
-Test-Path "\\vm-hostname\PerfTest"
+Test-Path "\\your-vm-host\MCP_Testlogfiles_entry"
 # Expected: True
 
 # Or map as drive letter (optional)
-net use Z: \\vm-hostname\PerfTest
+net use Z: \\your-vm-host\MCP_Testlogfiles_entry
 ```
 
 - [ ] UNC path accessible from local machine

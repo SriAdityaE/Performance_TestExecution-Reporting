@@ -27,7 +27,8 @@
 
 2. **No AWS S3, Azure Blob, Redis, or any cloud storage. EVER.**
    - All storage is Windows UNC file share (configurable via env var `PERF_SHARED_ROOT`)
-   - Example: `\\vm-hostname\PerfTest` mounted as a network path
+  - VM path example: `L:\Testlogfiles\MCP_Testlogfiles_entry`
+  - Local MCP access must use UNC via `PERF_SHARED_ROOT` (e.g., `\\your-vm-host\MCP_Testlogfiles_entry`)
 
 3. **No SSH, no VM credentials, no remote execution from MCP.**
    - MCP writes job JSON to UNC `__QUEUE__` folder
@@ -50,8 +51,8 @@
 ```python
 Input:
   test_name: str           # e.g., "GET_RO_Number_Load"
-  script_path_on_vm: str   # e.g., "C:\\PerfTests\\Scripts\\GET_RO_Number.jmx"
-  shared_root: str         # UNC path, e.g., "\\\\vm-host\\PerfTest"
+  script_path_on_vm: str   # e.g., "L:\\Latest_Script_Sqlserver\\Xinsepect_RDS_SQL&BabelfishTestplan_Latest_07_21.jmx"
+  shared_root: str         # VM path allowed, e.g., "L:\\Testlogfiles\\MCP_Testlogfiles_entry"
   notification_channel: str  # "terminal" | "teams" | "slack" | "both"
 
 Behavior:
@@ -281,7 +282,7 @@ Examples:
 [15:00:46] 📊 REPORTING STARTED — Scanning 2026-04-29 | Rounds found: 2
 [15:01:02] 📋 PARSED Round 1 — 180,240 requests | Avg: 420ms | P95: 980ms
 [15:01:03] 📋 PARSED Round 2 — 180,240 requests | Avg: 435ms | P95: 1050ms
-[15:01:04] ✅ REPORT GENERATED — Path: \\vm-host\PerfTest\results\DAILY_REPORT_2026-04-29.html
+[15:01:04] ✅ REPORT GENERATED — Path: L:\Testlogfiles\MCP_Testlogfiles_entry\results\DAILY_REPORT_2026-04-29.html
 [15:01:05] ✅ NOTIFICATION SENT — Channel: teams | Status: delivered
 [15:01:06] 📋 VM_STREAM — summary + 14766 in 00:00:30 = 492.0/s Avg: 2 Min: 1 Max: 165 Err: 0 (0.00%)
 [15:01:07] ⚠️ MONITORING_FALLBACK — Live log temporarily unavailable; heartbeat-only mode active
@@ -307,7 +308,7 @@ Examples:
 1. **No credentials anywhere in code, config, or documentation**
 2. **All secrets via environment variables only:**
    ```
-   PERF_SHARED_ROOT=\\vm-hostname\PerfTest
+  PERF_SHARED_ROOT=\\your-vm-host\MCP_Testlogfiles_entry
    TEAMS_WEBHOOK_URL=https://...
    SLACK_WEBHOOK_URL=https://...
    NOTIFICATION_CHANNEL=terminal
@@ -381,7 +382,7 @@ except:
 4. ❌ Never touch JMeter parameterization CSV files
 5. ❌ Never deviate from the report format defined above
 6. ❌ Never use bare `except:` or `except Exception:` without logging
-7. ❌ Never hardcode `\\vm-hostname\PerfTest` — always from env var
+7. ❌ Never hardcode shared-root paths (`L:\...` or `\\server\share`) — always from env var
 8. ❌ Never commit `.env` file
 9. ❌ Never send webhook URLs to logs
 10. ❌ Never skip terminal notification for any lifecycle event

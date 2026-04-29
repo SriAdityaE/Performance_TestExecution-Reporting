@@ -23,6 +23,7 @@ import json
 import logging
 import os
 import random
+import re
 import string
 import time
 from datetime import datetime, date as date_cls
@@ -61,6 +62,7 @@ mcp = FastMCP("perf-mcp")
 _HEARTBEAT_INTERVAL_SECONDS = 60
 _JOB_TIMEOUT_MINUTES = 120
 _LIVE_LOG_TAIL_LINES = 100
+_WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +118,41 @@ def _validate_script_path(script_path: str) -> None:
             f"script_path_on_vm '{script_path}' is not under the allowed prefix '{allowed_prefix}'. "
             "Update ALLOWED_VM_SCRIPT_PREFIX in .env if you need to use a different path."
         )
+
+
+def _resolve_local_shared_root(shared_root: str) -> str:
+    """Resolve shared_root to a local-accessible path for MCP file operations.
+
+    If input is a VM-local drive path (e.g., L:\\...), local MCP cannot access it
+    directly. In that case, this function requires UNC fallback from environment:
+    ``PERF_SHARED_ROOT`` or ``PERF_SHARED_ROOT_UNC``.
+
+    Args:
+        shared_root: Requested shared root from MCP tool input.
+
+    Returns:
+        A path accessible from the local MCP machine (normally UNC).
+
+    Raises:
+        ValueError: If shared_root is VM-local drive path and no UNC fallback is set.
+    """
+    if shared_root.startswith("\\\\") or shared_root.startswith("//"):
+        return shared_root
+
+    if _WINDOWS_DRIVE_RE.match(shared_root):
+        fallback = os.getenv("PERF_SHARED_ROOT") or os.getenv("PERF_SHARED_ROOT_UNC")
+        if fallback and (fallback.startswith("\\\\") or fallback.startswith("//")):
+            print(
+                f"[{_ts()}] ⚠️  SHARED_ROOT_MAP — VM path '{shared_root}' mapped to local UNC '{fallback}'"
+            )
+            return fallback
+        raise ValueError(
+            "shared_root is VM-local drive path and is not accessible from local MCP. "
+            "Set PERF_SHARED_ROOT (or PERF_SHARED_ROOT_UNC) to the UNC equivalent, "
+            "for example \\\\host\\share\\MCP_Testlogfiles_entry."
+        )
+
+    return shared_root
 
 
 def _read_json_file(path: Path) -> dict[str, Any] | None:
@@ -280,7 +317,7 @@ def start_test_execution(
         test_name: Logical test name (alphanumeric, underscores, hyphens, max 100 chars).
         script_path_on_vm: Absolute path to JMX script on VM. Must match
             ``ALLOWED_VM_SCRIPT_PREFIX`` environment variable.
-        shared_root: UNC path to the shared folder (e.g. ``\\\\vm-host\\PerfTest``).
+        shared_root: UNC path or VM-local drive path (e.g. ``L:\\Testlogfiles\\MCP_Testlogfiles_entry``).
         notification_channel: One of ``terminal`` | ``teams`` | ``slack`` | ``both``.
 
     Returns:
@@ -293,8 +330,8 @@ def start_test_execution(
     Example:
         >>> result = start_test_execution(
         ...     test_name="GET_RO_Number_Load",
-        ...     script_path_on_vm="C:\\\\PerfTests\\\\GET_RO_Number.jmx",
-        ...     shared_root="\\\\\\\\vm-host\\\\PerfTest",
+        ...     script_path_on_vm="L:\\\\Latest_Script_Sqlserver\\\\Xinsepect_RDS_SQL&BabelfishTestplan_Latest_07_21.jmx",
+        ...     shared_root="L:\\\\Testlogfiles\\\\MCP_Testlogfiles_entry",
         ...     notification_channel="terminal",
         ... )
     """
@@ -316,7 +353,13 @@ def start_test_execution(
         logger.error("Script path validation failed: %s", exc)
         return {"error": str(exc), "status": "validation_failed"}
 
-    shared = Path(inp.shared_root)
+    try:
+        local_shared_root = _resolve_local_shared_root(inp.shared_root)
+    except ValueError as exc:
+        logger.error("Shared root resolution failed: %s", exc)
+        return {"error": str(exc), "status": "validation_failed"}
+
+    shared = Path(local_shared_root)
     results_dir = shared / "results"
     queue_dir = shared / os.getenv("JOB_QUEUE_DIR", "__QUEUE__")
 
@@ -434,7 +477,7 @@ def start_test_execution(
     # --- Auto-trigger report on successful completion ---
     if final_status == "completed":
         _auto_generate_report(
-            shared_root=inp.shared_root,
+            shared_root=local_shared_root,
             date=today,
             notification_channel=inp.notification_channel,
         )
@@ -465,7 +508,7 @@ def get_execution_status(job_id: str, shared_root: str) -> dict[str, Any]:
 
     Args:
         job_id: Unique job identifier returned by start_test_execution.
-        shared_root: UNC path to the shared folder (same value used at job creation).
+        shared_root: UNC path or VM-local drive path (same value used at job creation).
 
     Returns:
         Dict matching :class:`GetExecutionStatusOutput` schema.
@@ -473,7 +516,7 @@ def get_execution_status(job_id: str, shared_root: str) -> dict[str, Any]:
     Example:
         >>> status = get_execution_status(
         ...     job_id="14-30-22_GET_RO_Number_abc123",
-        ...     shared_root="\\\\\\\\vm-host\\\\PerfTest",
+        ...     shared_root="L:\\\\Testlogfiles\\\\MCP_Testlogfiles_entry",
         ... )
     """
     try:
@@ -482,7 +525,13 @@ def get_execution_status(job_id: str, shared_root: str) -> dict[str, Any]:
         logger.error("get_execution_status input validation failed: %s", exc)
         return {"error": str(exc), "status": "validation_failed"}
 
-    shared = Path(inp.shared_root)
+    try:
+        local_shared_root = _resolve_local_shared_root(inp.shared_root)
+    except ValueError as exc:
+        logger.error("Shared root resolution failed: %s", exc)
+        return {"error": str(exc), "status": "validation_failed"}
+
+    shared = Path(local_shared_root)
     results_dir = shared / "results"
 
     # Search queue directories first
@@ -560,7 +609,7 @@ def generate_daily_report(
     a stakeholder HTML report, and sends notifications.
 
     Args:
-        shared_root: UNC path to the shared folder.
+        shared_root: UNC path or VM-local drive path to the shared folder.
         date: Date to report on in YYYY-MM-DD format.
         test_name: Optional filter to a specific test name. None for all tests.
         notification_channel: One of ``terminal`` | ``teams`` | ``slack`` | ``both``.
@@ -570,7 +619,7 @@ def generate_daily_report(
 
     Example:
         >>> report = generate_daily_report(
-        ...     shared_root="\\\\\\\\vm-host\\\\PerfTest",
+        ...     shared_root="L:\\\\Testlogfiles\\\\MCP_Testlogfiles_entry",
         ...     date="2026-04-29",
         ...     test_name=None,
         ...     notification_channel="terminal",
@@ -587,7 +636,13 @@ def generate_daily_report(
         logger.error("generate_daily_report input validation failed: %s", exc)
         return {"error": str(exc), "status": "validation_failed"}
 
-    shared = Path(inp.shared_root)
+    try:
+        local_shared_root = _resolve_local_shared_root(inp.shared_root)
+    except ValueError as exc:
+        logger.error("Shared root resolution failed: %s", exc)
+        return {"error": str(exc), "status": "validation_failed"}
+
+    shared = Path(local_shared_root)
     results_dir = shared / "results"
 
     # Discover round folders

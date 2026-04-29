@@ -91,7 +91,7 @@ Teams / Slack Webhooks
 {
   "job_id": "14-30-22_GET_RO_Number_abc123",
   "test_name": "GET_RO_Number",
-  "script_path_on_vm": "C:\\PerfTests\\GET_RO_Number.jmx",
+  "script_path_on_vm": "L:\\Latest_Script_Sqlserver\\Xinsepect_RDS_SQL&BabelfishTestplan_Latest_07_21.jmx",
   "round": 1,
   "day_folder": "2026-04-29_Round1_14-30-22",
   "created_at": "2026-04-29T14:30:22",

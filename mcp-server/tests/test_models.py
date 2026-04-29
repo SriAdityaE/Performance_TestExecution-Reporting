@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for Pydantic models validation.
 
 Coverage targets:
@@ -26,7 +26,7 @@ class TestStartTestExecutionInputValidation:
         inp = StartTestExecutionInput(
             test_name="GET_RO_Number_Load",
             script_path_on_vm="C:\\PerfTests\\test.jmx",
-            shared_root="\\\\vm-host\\PerfTest",
+            shared_root="L:\\Testlogfiles\\MCP_Testlogfiles_entry",
             notification_channel="terminal",
         )
         assert inp.test_name == "GET_RO_Number_Load"
@@ -66,12 +66,20 @@ class TestStartTestExecutionInputValidation:
                 notification_channel="email",
             )
 
-    def test_invalid_unc_path_raises(self):
-        with pytest.raises(ValidationError, match="UNC"):
+    def test_windows_drive_shared_root_allowed(self):
+        inp = StartTestExecutionInput(
+            test_name="Test1",
+            script_path_on_vm="C:\\test.jmx",
+            shared_root="L:\\Testlogfiles\\MCP_Testlogfiles_entry",
+        )
+        assert inp.shared_root.startswith("L:\\")
+
+    def test_relative_shared_root_raises(self):
+        with pytest.raises(ValidationError, match="UNC path"):
             StartTestExecutionInput(
                 test_name="Test1",
                 script_path_on_vm="C:\\test.jmx",
-                shared_root="C:\\local\\path",
+                shared_root="relative\\path",
             )
 
     def test_empty_test_name_raises(self):
@@ -95,9 +103,9 @@ class TestGetExecutionStatusInputValidation:
         )
         assert inp.job_id == "14-30-22_Test_abc123"
 
-    def test_invalid_unc_raises(self):
-        with pytest.raises(ValidationError, match="UNC"):
-            GetExecutionStatusInput(job_id="abc123", shared_root="C:\\local")
+    def test_windows_drive_shared_root_allowed(self):
+        inp = GetExecutionStatusInput(job_id="abc123", shared_root="L:\\Testlogfiles\\MCP_Testlogfiles_entry")
+        assert inp.shared_root.startswith("L:\\")
 
     def test_missing_job_id_raises(self):
         with pytest.raises(ValidationError):
@@ -112,6 +120,14 @@ class TestGenerateDailyReportInputValidation:
             notification_channel="teams",
         )
         assert inp.date == "2026-04-29"
+
+    def test_windows_drive_shared_root_allowed(self):
+        inp = GenerateDailyReportInput(
+            shared_root="L:\\Testlogfiles\\MCP_Testlogfiles_entry",
+            date="2026-04-29",
+            notification_channel="terminal",
+        )
+        assert inp.shared_root.startswith("L:\\")
 
     def test_invalid_date_format_raises(self):
         with pytest.raises(ValidationError, match="YYYY-MM-DD"):
@@ -175,3 +191,4 @@ class TestKpiMetricsModel:
     def test_missing_required_field_raises(self):
         with pytest.raises(ValidationError):
             KpiMetrics(total_requests=1000)  # missing many required fields
+

@@ -59,8 +59,9 @@ The design principle is **credential-free remote execution**:
                                                  │
                           ╔══════════════════════▼══════════════════╗
                           ║  WINDOWS UNC FILE SHARE                 ║
-                          ║  \\vm-hostname\PerfTest\                ║
-                          ║  (configured via PERF_SHARED_ROOT env)  ║
+                          ║  \\your-vm-host\MCP_Testlogfiles_entry\                ║
+                          ║  (VM uses L:\Testlogfiles\MCP_Testlogfiles_entry)    ║
+                          ║  (configured via PERF_SHARED_ROOT env)              ║
                           ║                                         ║
                           ║  __QUEUE__\          ← MCP writes       ║
                           ║  __RUNNING__\        ← Runner moves     ║
@@ -281,7 +282,7 @@ SHARED_ROOT\
 {
   "job_id": "14-30-22_GET_RO_Number_abc123",
   "test_name": "GET_RO_Number",
-  "script_path_on_vm": "C:\\PerfTests\\Scripts\\GET_RO_Number.jmx",
+   "script_path_on_vm": "L:\\Latest_Script_Sqlserver\\Xinsepect_RDS_SQL&BabelfishTestplan_Latest_07_21.jmx",
   "round": 1,
   "day_folder": "2026-04-29_Round1_14-30-22",
   "created_at": "2026-04-29T14:30:22",
@@ -296,7 +297,7 @@ SHARED_ROOT\
 {
   "job_id": "14-30-22_GET_RO_Number_abc123",
   "test_name": "GET_RO_Number",
-  "script_path_on_vm": "C:\\PerfTests\\Scripts\\GET_RO_Number.jmx",
+   "script_path_on_vm": "L:\\Latest_Script_Sqlserver\\Xinsepect_RDS_SQL&BabelfishTestplan_Latest_07_21.jmx",
   "round": 1,
   "day_folder": "2026-04-29_Round1_14-30-22",
   "status": "completed",
