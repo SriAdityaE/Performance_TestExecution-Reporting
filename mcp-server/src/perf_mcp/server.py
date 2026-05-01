@@ -164,12 +164,21 @@ def _resolve_local_shared_root(shared_root: str) -> str:
         return shared_root
 
     if _WINDOWS_DRIVE_RE.match(shared_root):
+        # If PERF_SHARED_ROOT is set to a drive path (MCP running on VM), use directly
         fallback = os.getenv("PERF_SHARED_ROOT") or os.getenv("PERF_SHARED_ROOT_UNC")
+        if fallback and _WINDOWS_DRIVE_RE.match(fallback):
+            print(
+                f"[{_ts()}] ✅  SHARED_ROOT_VM — Running on VM, using local drive path '{fallback}' directly"
+            )
+            return fallback
         if fallback and (fallback.startswith("\\\\") or fallback.startswith("//")):
             print(
                 f"[{_ts()}] ⚠️  SHARED_ROOT_MAP — VM path '{shared_root}' mapped to local UNC '{fallback}'"
             )
             return fallback
+        # No fallback set — if path is directly accessible (MCP on VM), use as-is
+        if Path(shared_root).exists():
+            return shared_root
         raise ValueError(
             "shared_root is VM-local drive path and is not accessible from local MCP. "
             "Set PERF_SHARED_ROOT (or PERF_SHARED_ROOT_UNC) to the UNC equivalent, "
