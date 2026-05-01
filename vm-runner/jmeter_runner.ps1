@@ -217,7 +217,7 @@ while ($true) {
 
     # Pick up next job file from queue
     $jobFiles = Get-ChildItem -Path $QueuePath -Filter "*.json" -ErrorAction SilentlyContinue
-    if (-not $jobFiles -or $jobFiles.Count -eq 0) {
+    if (-not $jobFiles -or @($jobFiles).Count -eq 0) {
         Write-Log "No jobs in queue. Waiting $POLL_INTERVAL_SEC s..."
         Start-Sleep -Seconds $POLL_INTERVAL_SEC
         continue
