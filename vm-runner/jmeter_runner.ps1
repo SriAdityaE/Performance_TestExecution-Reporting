@@ -27,7 +27,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 # ---------------------------------------------------------------------------
-# Configuration — ALL paths from environment or job JSON. Nothing hardcoded.
+# Configuration - ALL paths from environment or job JSON. Nothing hardcoded.
 # ---------------------------------------------------------------------------
 
 $JMETER_HOME         = if ($env:JMETER_HOME)         { $env:JMETER_HOME }         else { "C:\apache-jmeter" }
@@ -115,7 +115,7 @@ function Write-Summary {
     try {
         $rows = Import-Csv -Path $JtlPath -Encoding UTF8
         if (-not $rows -or $rows.Count -eq 0) {
-            Write-Log "WARNING: JTL file is empty — no summary written" "WARN"
+            Write-Log "WARNING: JTL file is empty - no summary written" "WARN"
             return
         }
 
@@ -189,8 +189,8 @@ Write-Log "============================================"
 Write-Log "JMeter VM Runner started"
 Write-Log "Shared root  : $SHARED_ROOT"
 Write-Log "JMeter home  : $JMETER_HOME"
-Write-Log "Poll interval: ${POLL_INTERVAL_SEC}s"
-Write-Log "Idle timeout : ${IDLE_TIMEOUT_MIN} min"
+Write-Log "Poll interval: $POLL_INTERVAL_SEC s"
+Write-Log "Idle timeout : $IDLE_TIMEOUT_MIN min"
 Write-Log "============================================"
 
 # Verify JMeter is installed
@@ -211,14 +211,14 @@ while ($true) {
     # Idle timeout check (FR-009-8)
     $idleSeconds = (Get-Date) - $lastJobTime | Select-Object -ExpandProperty TotalSeconds
     if ($idleSeconds -ge $idleTimeoutSeconds) {
-        Write-Log "Idle timeout reached (${IDLE_TIMEOUT_MIN} min). Shutting down runner."
+        Write-Log "Idle timeout reached ($IDLE_TIMEOUT_MIN min). Shutting down runner."
         break
     }
 
     # Pick up next job file from queue
     $jobFiles = Get-ChildItem -Path $QueuePath -Filter "*.json" -ErrorAction SilentlyContinue
     if (-not $jobFiles -or $jobFiles.Count -eq 0) {
-        Write-Log "No jobs in queue. Waiting ${POLL_INTERVAL_SEC}s..."
+        Write-Log "No jobs in queue. Waiting $POLL_INTERVAL_SEC s..."
         Start-Sleep -Seconds $POLL_INTERVAL_SEC
         continue
     }
@@ -250,7 +250,7 @@ while ($true) {
         New-Item -ItemType Directory -Path $ResultFolder -Force | Out-Null
     }
 
-    $JtlPath     = Join-Path $ResultFolder "${TestName}_Round$($job.round).jtl"
+    $JtlPath     = Join-Path $ResultFolder "$($TestName)_Round$($job.round).jtl"
     $LiveLogPath = Join-Path $ResultFolder "runner_live.log"
 
     # Move job from __QUEUE__ to __RUNNING__ (FR-009-3)
@@ -359,7 +359,7 @@ while ($true) {
         Start-Sleep -Seconds $heartbeatInterval
         $elapsedSec = [int]((Get-Date) - $testStartTime).TotalSeconds
         Write-Heartbeat -JobId $JobId -ResultFolder $ResultFolder -ElapsedSeconds $elapsedSec -JMeterRunning $true
-        Write-Log "HEARTBEAT — Elapsed: $([Math]::Floor($elapsedSec / 60)) min | JMeter running (PID $($jmeterProcess.Id))"
+        Write-Log "HEARTBEAT - Elapsed: $([Math]::Floor($elapsedSec / 60)) min | JMeter running (PID $($jmeterProcess.Id))"
     }
 
     # Final heartbeat after exit
@@ -412,7 +412,7 @@ while ($true) {
               -Force -ErrorAction SilentlyContinue
 
     Write-Log "============================================"
-    Write-Log "Ready for next job. Polling every ${POLL_INTERVAL_SEC}s..."
+    Write-Log "Ready for next job. Polling every $POLL_INTERVAL_SEC s..."
     $lastJobTime = Get-Date
 }
 
