@@ -122,12 +122,15 @@ Note: The `(.venv)` prefix confirms the virtual environment is active.
 
 **Expected output:**
 ```
-[HH:MM:SS] Starting FastMCP server...
-[HH:MM:SS] ✅ Server initialized with 3 tools
-[HH:MM:SS] Listening on stdio transport
+[HH:MM:SS] 🚀 MCP STARTED — Waiting for MCP client to connect
 ```
 
-**The server will stay running.** It's waiting for commands from clients.
+**The server will stay running.** It is waiting for stdio MCP client messages.
+
+**On first tool request from a client, you will see:**
+```
+[HH:MM:SS] ✅ MCP CLIENT CONNECTED — First tool request received
+```
 
 ---
 

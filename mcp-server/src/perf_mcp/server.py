@@ -25,6 +25,7 @@ import os
 import random
 import re
 import string
+import sys
 import time
 from datetime import datetime, date as date_cls
 from pathlib import Path
@@ -63,6 +64,7 @@ _HEARTBEAT_INTERVAL_SECONDS = 60
 _JOB_TIMEOUT_MINUTES = 120
 _LIVE_LOG_TAIL_LINES = 100
 _WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
+_CLIENT_CONNECTED_ANNOUNCED = False
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +75,28 @@ _WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
 def _ts() -> str:
     """Return [HH:MM:SS] timestamp string for terminal notifications."""
     return datetime.now().strftime("%H:%M:%S")
+
+
+def _notify_waiting_for_client() -> None:
+    """Emit startup status indicating server is ready and waiting for an MCP client.
+
+    Writes to stderr to avoid interfering with stdio JSON-RPC transport on stdout.
+    """
+    sys.stderr.write(f"[{_ts()}] 🚀 MCP STARTED — Waiting for MCP client to connect\n")
+    sys.stderr.flush()
+
+
+def _notify_client_connected_once() -> None:
+    """Emit one-time status when the first MCP tool request is received.
+
+    The first tool invocation confirms client-session connectivity.
+    """
+    global _CLIENT_CONNECTED_ANNOUNCED
+    if _CLIENT_CONNECTED_ANNOUNCED:
+        return
+    _CLIENT_CONNECTED_ANNOUNCED = True
+    sys.stderr.write(f"[{_ts()}] ✅ MCP CLIENT CONNECTED — First tool request received\n")
+    sys.stderr.flush()
 
 
 def _generate_job_id(test_name: str) -> str:
@@ -335,6 +359,8 @@ def start_test_execution(
         ...     notification_channel="terminal",
         ... )
     """
+    _notify_client_connected_once()
+
     # --- Input validation ---
     try:
         inp = StartTestExecutionInput(
@@ -519,6 +545,8 @@ def get_execution_status(job_id: str, shared_root: str) -> dict[str, Any]:
         ...     shared_root="L:\\\\Testlogfiles\\\\MCP_Testlogfiles_entry",
         ... )
     """
+    _notify_client_connected_once()
+
     try:
         inp = GetExecutionStatusInput(job_id=job_id, shared_root=shared_root)
     except Exception as exc:
@@ -625,6 +653,8 @@ def generate_daily_report(
         ...     notification_channel="terminal",
         ... )
     """
+    _notify_client_connected_once()
+
     try:
         inp = GenerateDailyReportInput(
             shared_root=shared_root,
@@ -881,6 +911,7 @@ def _find_result_folder(results_dir: Path, job_id: str) -> Path | None:
 
 def main() -> None:
     """Start the FastMCP server via stdio transport."""
+    _notify_waiting_for_client()
     mcp.run()
 
 
