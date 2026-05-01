@@ -12,7 +12,7 @@
 |------|---------|------|
 | Setup (first time) | `.\setup.ps1` | 5-10 min |
 | Start MCP Server | `.\.venv\Scripts\python.exe -m perf_mcp.server` | Immediate |
-| Run All Tests | `cd mcp-server && uv run pytest -q` | 30 sec |
+| Run All Tests | `.\.venv\Scripts\python.exe -m pytest mcp-server/tests/ -q` | 30 sec |
 | Check Git Status | `git status` | Instant |
 
 ---
@@ -154,9 +154,8 @@ Handles  NPM(K)    PM(K)      WS(K)     CPU(s)     Id  ProcessName
 ### Step 3.1: Run Unit Tests
 
 ```powershell
-cd mcp-server
-
-uv run pytest -q
+# From project root
+.\.venv\Scripts\python.exe -m pytest mcp-server/tests/ -q
 ```
 
 **Expected output:**
@@ -179,9 +178,8 @@ tests/test_jtl_parser.py::TestParseJtlHappyPath::test_skipped_rows_counted
 ### Step 3.2: Run Tests with Coverage
 
 ```powershell
-cd mcp-server
-
-uv run pytest --cov=src/perf_mcp --cov-report=html -q
+# From project root
+.\.venv\Scripts\python.exe -m pytest mcp-server/tests/ --cov=mcp-server/src/perf_mcp --cov-report=html -q
 ```
 
 **Expected output:**
@@ -204,17 +202,18 @@ open htmlcov/index.html
 ### Step 3.3: Run Specific Test Module
 
 ```powershell
+# From project root
 # Test only JTL parser
-uv run pytest tests/test_jtl_parser.py -v
+.\.venv\Scripts\python.exe -m pytest mcp-server/tests/test_jtl_parser.py -v
 
 # Test only notifier
-uv run pytest tests/test_notifier.py -v
+.\.venv\Scripts\python.exe -m pytest mcp-server/tests/test_notifier.py -v
 
 # Test only report generator
-uv run pytest tests/test_report_generator.py -v
+.\.venv\Scripts\python.exe -m pytest mcp-server/tests/test_report_generator.py -v
 
 # Test only models
-uv run pytest tests/test_models.py -v
+.\.venv\Scripts\python.exe -m pytest mcp-server/tests/test_models.py -v
 ```
 
 **Expected output for each:**
@@ -472,13 +471,11 @@ uv run --help
 ### Issue: Tests Fail
 
 ```powershell
-# Run tests with verbose output
-cd mcp-server
-
-uv run pytest tests/ -vv
+# Run tests with verbose output (from project root)
+.\.venv\Scripts\python.exe -m pytest mcp-server/tests/ -vv
 
 # Run single failing test
-uv run pytest tests/test_jtl_parser.py::TestParseJtlHappyPath::test_single_label -vv
+.\.venv\Scripts\python.exe -m pytest mcp-server/tests/test_jtl_parser.py::TestParseJtlHappyPath::test_single_label -vv
 ```
 
 ### Issue: UNC Path Not Accessible
@@ -579,9 +576,9 @@ Write-Host "✅ Security audit complete"
 .\.venv\Scripts\python.exe -m perf_mcp.server  # Start MCP server
 
 # === TESTING ===
-cd mcp-server && uv run pytest -q           # Run all tests
-uv run pytest --cov=src/perf_mcp -q         # Run with coverage
-uv run pytest tests/test_jtl_parser.py -v   # Test specific module
+.\.venv\Scripts\python.exe -m pytest mcp-server/tests/ -q                                  # Run all tests
+.\.venv\Scripts\python.exe -m pytest mcp-server/tests/ --cov=mcp-server/src/perf_mcp -q   # Run with coverage
+.\.venv\Scripts\python.exe -m pytest mcp-server/tests/test_jtl_parser.py -v               # Test specific module
 
 # === GIT ===
 git status                                   # Check status
