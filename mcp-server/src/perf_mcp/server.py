@@ -19,6 +19,7 @@ Security:
 from __future__ import annotations
 
 import glob
+import io
 import json
 import logging
 import os
@@ -27,6 +28,7 @@ import re
 import string
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime, date as date_cls
 from pathlib import Path
@@ -130,13 +132,27 @@ def _git_push(repo_path: Path, message: str) -> None:
         logger.warning("git push skipped (non-fatal): %s", exc)
 
 
+def _notify(msg: str) -> None:
+    """Write a terminal notification line to stderr using UTF-8 encoding.
+
+    Writes to stderr to avoid interfering with stdio JSON-RPC transport on stdout,
+    and forces UTF-8 to avoid charmap errors on Windows for emoji characters.
+    """
+    try:
+        sys.stderr.buffer.write((msg + "\n").encode("utf-8", errors="replace"))
+        sys.stderr.buffer.flush()
+    except AttributeError:
+        # Fallback for streams without a buffer (e.g., StringIO in tests)
+        sys.stderr.write(msg + "\n")
+        sys.stderr.flush()
+
+
 def _notify_waiting_for_client() -> None:
     """Emit startup status indicating server is ready and waiting for an MCP client.
 
     Writes to stderr to avoid interfering with stdio JSON-RPC transport on stdout.
     """
-    sys.stderr.write(f"[{_ts()}] 🚀 MCP STARTED — Waiting for MCP client to connect\n")
-    sys.stderr.flush()
+    _notify(f"[{_ts()}] 🚀 MCP STARTED — Waiting for MCP client to connect")
 
 
 def _notify_client_connected_once() -> None:
@@ -148,8 +164,7 @@ def _notify_client_connected_once() -> None:
     if _CLIENT_CONNECTED_ANNOUNCED:
         return
     _CLIENT_CONNECTED_ANNOUNCED = True
-    sys.stderr.write(f"[{_ts()}] ✅ MCP CLIENT CONNECTED — First tool request received\n")
-    sys.stderr.flush()
+    _notify(f"[{_ts()}] ✅ MCP CLIENT CONNECTED — First tool request received")
 
 
 def _generate_job_id(test_name: str) -> str:
@@ -220,12 +235,12 @@ def _resolve_local_shared_root(shared_root: str) -> str:
         # If PERF_SHARED_ROOT is set to a drive path (MCP running on VM), use directly
         fallback = os.getenv("PERF_SHARED_ROOT") or os.getenv("PERF_SHARED_ROOT_UNC")
         if fallback and _WINDOWS_DRIVE_RE.match(fallback):
-            print(
+            _notify(
                 f"[{_ts()}] ✅  SHARED_ROOT_VM — Running on VM, using local drive path '{fallback}' directly"
             )
             return fallback
         if fallback and (fallback.startswith("\\\\") or fallback.startswith("//")):
-            print(
+            _notify(
                 f"[{_ts()}] ⚠️  SHARED_ROOT_MAP — VM path '{shared_root}' mapped to local UNC '{fallback}'"
             )
             return fallback
@@ -482,10 +497,10 @@ def start_test_execution(
     # Push job to GitHub so VM runner can pull and pick it up
     _git_push(shared, f"job: {job_id}")
 
-    print(
+    _notify(
         f"[{_ts()}] ✅ JOB QUEUED — Job: {job_id} | Round: {round_number} | Folder: {day_folder}"
     )
-    print(
+    _notify(
         f"[{_ts()}] 🚀 TEST EXECUTION STARTED — Script: {inp.script_path_on_vm} | "
         f"Waiting for VM runner to pick up job..."
     )
@@ -504,7 +519,7 @@ def start_test_execution(
 
         # Timeout guard
         if elapsed_min >= _JOB_TIMEOUT_MINUTES:
-            print(f"[{_ts()}] ❌ JOB TIMED OUT — Elapsed: {_JOB_TIMEOUT_MINUTES} min | Job: {job_id}")
+            _notify(f"[{_ts()}] ❌ JOB TIMED OUT — Elapsed: {_JOB_TIMEOUT_MINUTES} min | Job: {job_id}")
             logger.error("Job timed out after %d minutes: %s", _JOB_TIMEOUT_MINUTES, job_id)
             final_status = "timed_out"
             break
@@ -523,13 +538,13 @@ def start_test_execution(
             monitoring_mode = "live_stream"
             live_log_warned = False
             for line in new_lines[-_LIVE_LOG_TAIL_LINES:]:
-                print(f"[{_ts()}] 📋 VM_STREAM — {line}")
+                _notify(f"[{_ts()}] 📋 VM_STREAM — {line}")
         else:
             if monitoring_mode == "live_stream":
                 # Log stream interrupted — switch to fallback
                 monitoring_mode = "heartbeat_only"
                 if not live_log_warned:
-                    print(
+                    _notify(
                         f"[{_ts()}] ⚠️  MONITORING_FALLBACK — "
                         "Live log temporarily unavailable; heartbeat-only mode active"
                     )
@@ -541,28 +556,28 @@ def start_test_execution(
             if summary_data:
                 metrics = _kpi_from_summary(summary_data)
                 if metrics:
-                    print(
+                    _notify(
                         f"[{_ts()}] ✅ TEST COMPLETED — "
                         f"Requests: {metrics.total_requests:,} | "
                         f"Errors: {metrics.error_rate_pct:.2f}% | "
                         f"Avg: {metrics.avg_response_ms:.0f}ms"
                     )
                 else:
-                    print(f"[{_ts()}] ✅ TEST COMPLETED — Job: {job_id}")
+                    _notify(f"[{_ts()}] ✅ TEST COMPLETED — Job: {job_id}")
             else:
-                print(f"[{_ts()}] ✅ TEST COMPLETED — Job: {job_id}")
+                _notify(f"[{_ts()}] ✅ TEST COMPLETED — Job: {job_id}")
             final_status = "completed"
             break
 
         elif current_status == "failed":
             error_msg = meta_data.get("error_message", "Unknown error") if meta_data else "No metadata"
-            print(f"[{_ts()}] ❌ TEST FAILED — Error: {error_msg} | Folder: {result_folder}")
+            _notify(f"[{_ts()}] ❌ TEST FAILED — Error: {error_msg} | Folder: {result_folder}")
             logger.error("Job failed: %s | Error: %s", job_id, error_msg)
             final_status = "failed"
             break
 
         # Heartbeat every 60 seconds
-        print(
+        _notify(
             f"[{_ts()}] ⏳ HEARTBEAT — Elapsed: {elapsed_min} min | "
             f"Status: {current_status.upper()} | VM Runner active"
         )
@@ -636,7 +651,7 @@ def get_execution_status(job_id: str, shared_root: str) -> dict[str, Any]:
     # Search queue directories first
     queue_status = _find_in_queue(shared, inp.job_id)
     if queue_status:
-        print(f"[{_ts()}] ⏳ STATUS — Job: {inp.job_id} | Status: {queue_status.upper()} (in queue)")
+        _notify(f"[{_ts()}] ⏳ STATUS — Job: {inp.job_id} | Status: {queue_status.upper()} (in queue)")
         return GetExecutionStatusOutput(
             job_id=inp.job_id, status=queue_status
         ).model_dump()
@@ -644,7 +659,7 @@ def get_execution_status(job_id: str, shared_root: str) -> dict[str, Any]:
     # Search result folders
     result_folder = _find_result_folder(results_dir, inp.job_id)
     if result_folder is None:
-        print(f"[{_ts()}] ⚠️  STATUS — Job: {inp.job_id} | Not found in any folder")
+        _notify(f"[{_ts()}] ⚠️  STATUS — Job: {inp.job_id} | Not found in any folder")
         return GetExecutionStatusOutput(
             job_id=inp.job_id, status="not_found"
         ).model_dump()
@@ -670,7 +685,7 @@ def get_execution_status(job_id: str, shared_root: str) -> dict[str, Any]:
         except OSError:
             live_log_available = False
 
-    print(
+    _notify(
         f"[{_ts()}] 📋 STATUS — Job: {inp.job_id} | Status: {status.upper()} | "
         f"Test: {test_name} | Started: {started_at}"
     )
@@ -753,7 +768,7 @@ def generate_daily_report(
     round_folders = _discover_round_folders(results_dir, inp.date, inp.test_name)
     rounds_found = len(round_folders)
 
-    print(
+    _notify(
         f"[{_ts()}] 📊 REPORTING STARTED — "
         f"Scanning {inp.date} | Rounds found: {rounds_found}"
     )
@@ -809,7 +824,7 @@ def generate_daily_report(
             round_summaries.append(summary)
             parsed_results.append(parsed)
 
-            print(
+            _notify(
                 f"[{_ts()}] 📋 PARSED Round {idx} — "
                 f"{total.sample_count:,} requests | "
                 f"Avg: {total.avg_ms:.0f}ms | "
@@ -819,7 +834,7 @@ def generate_daily_report(
         except (FileNotFoundError, ValueError) as exc:
             logger.error("Skipping round folder '%s': %s", folder, exc)
             parse_errors.append(f"Round {idx} ({folder.name}): {exc}")
-            print(f"[{_ts()}] ⚠️  PARSE SKIPPED — Round {idx} | Folder: {folder.name} | Error: {exc}")
+            _notify(f"[{_ts()}] ⚠️  PARSE SKIPPED — Round {idx} | Folder: {folder.name} | Error: {exc}")
 
     if not round_summaries:
         return GenerateDailyReportOutput(
@@ -853,7 +868,7 @@ def generate_daily_report(
             summary={"error": f"Report generation failed: {exc}"},
         ).model_dump()
 
-    print(f"[{_ts()}] ✅ REPORT GENERATED — Path: {html_path}")
+    _notify(f"[{_ts()}] ✅ REPORT GENERATED — Path: {html_path}")
 
     # Send notifications
     best = min(round_summaries, key=lambda r: r.metrics.avg_response_ms)
@@ -928,7 +943,7 @@ def _auto_generate_report(shared_root: str, date: str, notification_channel: str
         )
     except Exception as exc:
         logger.error("Auto report generation failed (non-blocking): %s", exc, exc_info=True)
-        print(f"[{_ts()}] ⚠️  AUTO REPORT FAILED — Error: {exc} | Report can be re-run manually.")
+        _notify(f"[{_ts()}] ⚠️  AUTO REPORT FAILED — Error: {exc} | Report can be re-run manually.")
 
 
 # ---------------------------------------------------------------------------
@@ -988,9 +1003,21 @@ def _find_result_folder(results_dir: Path, job_id: str) -> Path | None:
 # ---------------------------------------------------------------------------
 
 
+def _heartbeat_loop() -> None:
+    """Emit a heartbeat to stderr every 30 seconds so the terminal shows the server is alive."""
+    count = 0
+    while True:
+        time.sleep(30)
+        count += 1
+        _notify(f"[{_ts()}] ⏳ MCP HEARTBEAT — Server alive | Uptime: {count * 30}s | Waiting for tool calls")
+
+
 def main() -> None:
     """Start the FastMCP server via stdio transport."""
-    _notify_waiting_for_client()
+    _notify(f"[{_ts()}] 🚀 MCP SERVER STARTED — perf-mcp ready | Tools: start_test_execution, get_execution_status, generate_daily_report")
+    _notify(f"[{_ts()}] ⏳ MCP WAITING — Listening for VS Code Copilot tool calls via stdio")
+    t = threading.Thread(target=_heartbeat_loop, daemon=True)
+    t.start()
     mcp.run()
 
 
