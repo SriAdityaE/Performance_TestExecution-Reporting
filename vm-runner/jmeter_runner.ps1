@@ -338,10 +338,11 @@ while ($true) {
     $jmeterArgString = $jmeterArgs -join " "
     Write-Log "JMeter command: $JMeterBin $jmeterArgString"
 
-    # Start JMeter and capture PID for monitoring
+    # Start JMeter and capture PID for monitoring.
+    # .bat files require cmd.exe as the host when UseShellExecute=false (output redirect).
     $processStartInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $processStartInfo.FileName               = $JMeterBin
-    $processStartInfo.Arguments              = $jmeterArgString
+    $processStartInfo.FileName               = "cmd.exe"
+    $processStartInfo.Arguments              = "/c `"$JMeterBin`" $jmeterArgString"
     $processStartInfo.RedirectStandardOutput = $true
     $processStartInfo.RedirectStandardError  = $true
     $processStartInfo.UseShellExecute        = $false
