@@ -17,11 +17,13 @@ Design decisions:
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import datetime
 from pathlib import Path
 
 from jinja2 import Environment, BaseLoader
+from markupsafe import Markup, escape
 
 from .models import LabelStats, ParsedJtlResult, RoundSummary
 
@@ -420,7 +422,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 <div class="observations">
   <ul>
     {% for obs in observations %}
-    <li>{{ obs }}</li>
+    <li>{{ obs | md_bold }}</li>
     {% endfor %}
   </ul>
 </div>
@@ -428,7 +430,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 <!-- ====== SECTION 4: Recommendation ====== -->
 <h2>Section 4: Recommendation</h2>
 <div class="recommendation">
-  <p>{{ recommendation }}</p>
+  <p>{{ recommendation | md_bold }}</p>
 </div>
 
 <div class="footer">
@@ -468,6 +470,7 @@ def _render_html(
     # Add zip and custom filter for comma-formatting large integers
     env.globals["zip"] = zip
     env.filters["commaformat"] = lambda v: f"{v:,}"
+    env.filters["md_bold"] = lambda s: Markup(re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", str(escape(str(s)))))
 
     template = env.from_string(_HTML_TEMPLATE)
     return template.render(

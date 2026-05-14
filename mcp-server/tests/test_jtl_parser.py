@@ -197,8 +197,8 @@ class TestParseJtlUnhappyPath:
         with pytest.raises(FileNotFoundError):
             find_jtl_file(missing)
 
-    def test_find_jtl_multiple_files_returns_first_with_warning(self, tmp_path, caplog):
-        """Multiple JTL files: returns first, logs a warning."""
+    def test_find_jtl_multiple_files_returns_newest_with_warning(self, tmp_path, caplog):
+        """Multiple JTL files: returns newest by mtime, logs a warning."""
         (tmp_path / "a.jtl").write_text("", encoding="utf-8")
         (tmp_path / "b.jtl").write_text("", encoding="utf-8")
         import logging

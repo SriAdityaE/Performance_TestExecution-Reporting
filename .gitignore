@@ -14,13 +14,11 @@ build/
 .coverage
 htmlcov/
 
-# Test artifacts — never commit real JTL or result files
-*.jtl
-results/
+# Test artifacts
 temp_results/
 DAILY_REPORT_*.html
 
-# Logs
+# Logs (runner_live.log excluded — monitoring uses heartbeat-only mode via git transport)
 *.log
 *.tmp
 

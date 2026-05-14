@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # Retry config per FR-008-5
 _MAX_RETRIES = 3
-_RETRY_BACKOFF_SECONDS = [1, 2, 4]
+_RETRY_BACKOFF_SECONDS = [1, 2]
 
 # Per-attempt timeout per FR-008-6
 _REQUEST_TIMEOUT_SECONDS = 12
@@ -156,14 +156,22 @@ def _send_teams(
         return NotificationStatus(channel="teams", delivered=False, attempts=0, error="TEAMS_WEBHOOK_URL not set")
 
     payload = {
-        "text": (
-            f"**JMeter Test Report — {date}**\n\n"
-            f"Rounds: {rounds_found}\n"
-            f"Best Round: {best_round}\n"
-            f"Avg Response Trend: {avg_response_trend}\n"
-            f"Error Rate: {error_rate:.2f}%\n"
-            f"Report: {report_path}"
-        )
+        "@type": "MessageCard",
+        "@context": "https://schema.org/extensions",
+        "themeColor": "0076D7",
+        "summary": f"JMeter Performance Report \u2014 {date}",
+        "sections": [
+            {
+                "activityTitle": f"\U0001f4ca JMeter Performance Report \u2014 {date}",
+                "facts": [
+                    {"name": "Rounds", "value": str(rounds_found)},
+                    {"name": "Best Round", "value": best_round},
+                    {"name": "Avg Response Trend", "value": avg_response_trend},
+                    {"name": "Error Rate", "value": f"{error_rate:.2f}%"},
+                    {"name": "Report", "value": report_path},
+                ],
+            }
+        ],
     }
 
     return _post_with_retry("teams", webhook_url, payload)
@@ -205,12 +213,33 @@ def _send_slack(
         return NotificationStatus(channel="slack", delivered=False, attempts=0, error="SLACK_WEBHOOK_URL not set")
 
     payload = {
-        "text": (
-            f"*JMeter Test Report — {date}*\n"
-            f"Rounds: {rounds_found} | Best: {best_round} | "
-            f"Trend: {avg_response_trend} | Errors: {error_rate:.2f}%\n"
-            f"Report: {report_path}"
-        )
+        "blocks": [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": f"\U0001f4ca JMeter Report \u2014 {date}",
+                    "emoji": True,
+                },
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {"type": "mrkdwn", "text": f"*Rounds:* {rounds_found}"},
+                    {"type": "mrkdwn", "text": f"*Best Round:* {best_round}"},
+                    {"type": "mrkdwn", "text": f"*Avg Trend:* {avg_response_trend}"},
+                    {"type": "mrkdwn", "text": f"*Error Rate:* {error_rate:.2f}%"},
+                ],
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Report:* `{report_path}`",
+                },
+            },
+            {"type": "divider"},
+        ]
     }
 
     return _post_with_retry("slack", webhook_url, payload)

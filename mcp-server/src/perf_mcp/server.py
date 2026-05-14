@@ -25,6 +25,7 @@ import os
 import random
 import re
 import string
+import subprocess
 import sys
 import time
 from datetime import datetime, date as date_cls
@@ -75,6 +76,58 @@ _CLIENT_CONNECTED_ANNOUNCED = False
 def _ts() -> str:
     """Return [HH:MM:SS] timestamp string for terminal notifications."""
     return datetime.now().strftime("%H:%M:%S")
+
+
+def _git_pull(repo_path: Path) -> None:
+    """Pull latest changes from GitHub (git transport mode). Non-fatal on failure."""
+    try:
+        result = subprocess.run(
+            ["git", "pull", "--rebase"],
+            cwd=str(repo_path),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            logger.warning("git pull non-zero exit: %s", result.stderr.strip())
+    except Exception as exc:
+        logger.warning("git pull skipped (non-fatal): %s", exc)
+
+
+def _git_push(repo_path: Path, message: str) -> None:
+    """Stage all changes, commit, and push to GitHub. Non-fatal on failure."""
+    try:
+        subprocess.run(
+            ["git", "add", "-A"],
+            cwd=str(repo_path),
+            capture_output=True,
+            timeout=15,
+        )
+        commit = subprocess.run(
+            ["git", "commit", "-m", message],
+            cwd=str(repo_path),
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        # Exit code 1 with 'nothing to commit' is not an error
+        nothing_to_commit = (
+            "nothing to commit" in commit.stdout
+            or "nothing to commit" in commit.stderr
+        )
+        if nothing_to_commit or commit.returncode == 1:
+            return
+        push = subprocess.run(
+            ["git", "push"],
+            cwd=str(repo_path),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if push.returncode != 0:
+            logger.warning("git push failed: %s", push.stderr.strip())
+    except Exception as exc:
+        logger.warning("git push skipped (non-fatal): %s", exc)
 
 
 def _notify_waiting_for_client() -> None:
@@ -290,7 +343,7 @@ def _discover_round_folders(results_dir: Path, report_date: str, test_name_filte
             if meta and meta.get("test_name", "") != test_name_filter:
                 continue
 
-        if has_artifacts or list(folder.glob("*.jtl")):
+        if has_artifacts or jtl_files:
             found.append(folder)
 
     return found
@@ -426,6 +479,9 @@ def start_test_execution(
         logger.error("Failed to write job file to queue '%s': %s", queue_dir, exc, exc_info=True)
         return {"error": f"Failed to write job to queue: {exc}", "status": "queue_failed"}
 
+    # Push job to GitHub so VM runner can pull and pick it up
+    _git_push(shared, f"job: {job_id}")
+
     print(
         f"[{_ts()}] ✅ JOB QUEUED — Job: {job_id} | Round: {round_number} | Folder: {day_folder}"
     )
@@ -452,6 +508,9 @@ def start_test_execution(
             logger.error("Job timed out after %d minutes: %s", _JOB_TIMEOUT_MINUTES, job_id)
             final_status = "timed_out"
             break
+
+        # Pull latest results from GitHub before checking status
+        _git_pull(shared)
 
         # Read metadata.json for status
         meta_path = result_folder / "metadata.json"
@@ -571,6 +630,9 @@ def get_execution_status(job_id: str, shared_root: str) -> dict[str, Any]:
     shared = Path(local_shared_root)
     results_dir = shared / "results"
 
+    # Pull latest status from GitHub before searching
+    _git_pull(shared)
+
     # Search queue directories first
     queue_status = _find_in_queue(shared, inp.job_id)
     if queue_status:
@@ -683,6 +745,9 @@ def generate_daily_report(
 
     shared = Path(local_shared_root)
     results_dir = shared / "results"
+
+    # Pull latest results from GitHub before scanning
+    _git_pull(shared)
 
     # Discover round folders
     round_folders = _discover_round_folders(results_dir, inp.date, inp.test_name)
@@ -904,7 +969,12 @@ def _find_result_folder(results_dir: Path, job_id: str) -> Path | None:
     """
     if not results_dir.exists():
         return None
-    for folder in results_dir.iterdir():
+    try:
+        entries = list(results_dir.iterdir())
+    except OSError as exc:
+        logger.warning("Cannot read results directory '%s': %s", results_dir, exc)
+        return None
+    for folder in entries:
         if not folder.is_dir():
             continue
         meta = _read_json_file(folder / "metadata.json")

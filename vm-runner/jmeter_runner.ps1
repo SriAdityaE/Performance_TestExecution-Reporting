@@ -100,6 +100,41 @@ function Write-Log {
     Write-Host $line
 }
 
+function Invoke-GitPull {
+    <#
+    .SYNOPSIS Pull latest jobs from GitHub. Non-fatal on failure.
+    .PARAMETER RepoPath Root path of the git repository.
+    #>
+    param([string]$RepoPath)
+    try {
+        $out = & git -C $RepoPath pull --rebase 2>&1
+        Write-Log "git pull: $out"
+    } catch {
+        Write-Log "WARNING: git pull failed (non-fatal): $_" "WARN"
+    }
+}
+
+function Invoke-GitPush {
+    <#
+    .SYNOPSIS Stage all changes, commit, and push to GitHub. Non-fatal on failure.
+    .PARAMETER RepoPath Root path of the git repository.
+    .PARAMETER Message  Git commit message.
+    #>
+    param([string]$RepoPath, [string]$Message)
+    try {
+        & git -C $RepoPath add -A 2>&1 | Out-Null
+        $commitOut = & git -C $RepoPath commit -m $Message 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $pushOut = & git -C $RepoPath push 2>&1
+            Write-Log "git push: $pushOut"
+        } else {
+            Write-Log "git commit (nothing to commit or error): $commitOut"
+        }
+    } catch {
+        Write-Log "WARNING: git push failed (non-fatal): $_" "WARN"
+    }
+}
+
 function Write-Heartbeat {
     <#
     .SYNOPSIS Write heartbeat.json to the result folder every 60 seconds.
@@ -260,7 +295,8 @@ while ($true) {
     # Pick up next job file from queue
     $jobFiles = Get-ChildItem -Path $QueuePath -Filter "*.json" -ErrorAction SilentlyContinue
     if (-not $jobFiles -or @($jobFiles).Count -eq 0) {
-        Write-Log "No jobs in queue. Waiting $POLL_INTERVAL_SEC s..."
+        Write-Log "No jobs in queue. Pulling from GitHub and waiting $POLL_INTERVAL_SEC s..."
+        Invoke-GitPull -RepoPath $SHARED_ROOT
         Start-Sleep -Seconds $POLL_INTERVAL_SEC
         continue
     }
@@ -317,6 +353,9 @@ while ($true) {
         completed_at       = $null
         error_message      = $null
     }
+
+    # Push running status to GitHub so MCP server sees it immediately
+    Invoke-GitPush -RepoPath $SHARED_ROOT -Message "running: $JobId"
 
     Write-Log "STARTING JMeter: $ScriptPath"
     Write-Log "Result folder  : $ResultFolder"
@@ -453,6 +492,9 @@ while ($true) {
     Move-Item -Path $runningJobFile `
               -Destination (Join-Path $CompletedPath $jobFile.Name) `
               -Force -ErrorAction SilentlyContinue
+
+    # Push final results to GitHub so MCP server can pull and generate report
+    Invoke-GitPush -RepoPath $SHARED_ROOT -Message "completed: $JobId"
 
     Write-Log "============================================"
     Write-Log "Ready for next job. Polling every $POLL_INTERVAL_SEC s..."

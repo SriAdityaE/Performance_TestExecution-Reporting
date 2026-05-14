@@ -268,11 +268,13 @@ def find_jtl_file(result_folder: str | Path) -> Path:
         )
 
     if len(matches) > 1:
+        newest = max(matches, key=lambda p: p.stat().st_mtime)
         logger.warning(
-            "Multiple *.jtl files found in '%s': %s. Using the first: %s",
+            "Multiple *.jtl files found in '%s': %s. Using newest: %s",
             result_folder,
             [m.name for m in matches],
-            matches[0].name,
+            newest.name,
         )
+        return newest
 
     return matches[0]
