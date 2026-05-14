@@ -26,6 +26,48 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function Import-EnvFile {
+    <#
+    .SYNOPSIS
+        Loads KEY=VALUE pairs from a .env file into process environment variables.
+    .PARAMETER EnvPath
+        Full path to the .env file.
+    #>
+    param([string]$EnvPath)
+
+    if (-not (Test-Path $EnvPath)) {
+        return
+    }
+
+    Get-Content -Path $EnvPath -Encoding UTF8 | ForEach-Object {
+        $line = $_.Trim()
+        if (-not $line -or $line.StartsWith("#")) {
+            return
+        }
+
+        $idx = $line.IndexOf("=")
+        if ($idx -lt 1) {
+            return
+        }
+
+        $key = $line.Substring(0, $idx).Trim()
+        $value = $line.Substring($idx + 1).Trim()
+        if (-not $key) {
+            return
+        }
+
+        # Keep explicit process env precedence: only fill missing values.
+        if (-not [Environment]::GetEnvironmentVariable($key, "Process")) {
+            [Environment]::SetEnvironmentVariable($key, $value, "Process")
+        }
+    }
+}
+
+# Try known .env locations before reading required vars.
+$RepoRoot = Split-Path -Parent $PSScriptRoot
+Import-EnvFile -EnvPath (Join-Path $RepoRoot "mcp-server\.env")
+Import-EnvFile -EnvPath (Join-Path $RepoRoot ".env")
+
 # ---------------------------------------------------------------------------
 # Configuration - ALL paths from environment or job JSON. Nothing hardcoded.
 # ---------------------------------------------------------------------------
