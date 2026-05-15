@@ -109,6 +109,9 @@ function Invoke-GitPull {
     #>
     param([string]$RepoPath)
 
+    # Ensure we are on the main branch (not detached HEAD from git reset --hard)
+    & git -C $RepoPath checkout main 2>&1 | Out-Null
+
     # Stash any local uncommitted changes so pull can proceed cleanly
     $stashOut = & git -C $RepoPath stash 2>&1
     $stashStr = $stashOut -join " "
