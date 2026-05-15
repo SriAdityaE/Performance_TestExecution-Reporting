@@ -103,14 +103,34 @@ function Write-Log {
 function Invoke-GitPull {
     <#
     .SYNOPSIS Pull latest jobs from GitHub. Non-fatal on failure.
+              Stashes local changes before pulling to avoid rebase conflicts
+              (e.g., heartbeat.json or in-flight queue file moves).
+              Falls back to fetch + hard reset if pull still fails.
     .PARAMETER RepoPath Root path of the git repository.
     #>
     param([string]$RepoPath)
     try {
-        $out = & git -C $RepoPath pull --rebase 2>&1
-        Write-Log "git pull: $out"
+        # Stash any local uncommitted changes so pull can proceed cleanly
+        $stashOut = & git -C $RepoPath stash 2>&1
+        $hadStash = ($stashOut -join "") -notmatch "No local changes to save"
+
+        $out = & git -C $RepoPath pull 2>&1
+        Write-Log "git pull: $($out -join ' ')"
+
+        # Restore stashed changes (e.g., partially-written heartbeat.json)
+        if ($hadStash) {
+            & git -C $RepoPath stash pop 2>&1 | Out-Null
+        }
     } catch {
-        Write-Log "WARNING: git pull failed (non-fatal): $_" "WARN"
+        # Last resort: hard-reset to origin/main so queue is always in sync
+        Write-Log "WARNING: git pull failed — attempting hard reset to origin/main: $_" "WARN"
+        try {
+            & git -C $RepoPath fetch origin main 2>&1 | Out-Null
+            & git -C $RepoPath reset --hard origin/main 2>&1 | Out-Null
+            Write-Log "Hard reset to origin/main completed — local state synced."
+        } catch {
+            Write-Log "WARNING: Hard reset also failed (non-fatal): $_" "WARN"
+        }
     }
 }
 
