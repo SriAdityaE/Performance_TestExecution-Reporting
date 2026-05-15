@@ -122,13 +122,15 @@ function Invoke-GitPull {
     }
 
     # Stash any local uncommitted changes so pull can proceed cleanly
-    $stashOut = & git -C $RepoPath stash 2>&1
-    $stashStr = $stashOut -join " "
+    # Use 2>$null to discard git stderr entirely - PS5.1 turns 2>&1 into ErrorRecord
+    # objects that can terminate the script even with ErrorActionPreference=Continue.
+    $stashOut = & git -C $RepoPath stash 2>$null
+    $stashStr = if ($stashOut) { $stashOut -join " " } else { "" }
     $hadStash = $stashStr -notmatch "No local changes to save"
 
-    $out = & git -C $RepoPath pull 2>&1
+    $out = & git -C $RepoPath pull 2>$null
     $pullOk = ($LASTEXITCODE -eq 0)
-    Write-Log "git pull: $($out -join ' ')"
+    Write-Log "git pull exit=$LASTEXITCODE: $($out -join ' ')"
 
     if ($pullOk) {
         if ($hadStash) {
@@ -155,11 +157,11 @@ function Invoke-GitPush {
     param([string]$RepoPath, [string]$Message)
     $ErrorActionPreference = "Continue"
     try {
-        & git -C $RepoPath add -A 2>&1 | Out-Null
-        $commitOut = & git -C $RepoPath commit -m $Message 2>&1
+        & git -C $RepoPath add -A 2>$null | Out-Null
+        $commitOut = & git -C $RepoPath commit -m $Message 2>$null
         if ($LASTEXITCODE -eq 0) {
-            $pushOut = & git -C $RepoPath push 2>&1
-            Write-Log "git push: $pushOut"
+            $pushOut = & git -C $RepoPath push 2>$null
+            Write-Log "git push exit=$LASTEXITCODE"
         } else {
             Write-Log "git commit (nothing to commit or error): $commitOut"
         }
