@@ -111,6 +111,13 @@ function Invoke-GitPull {
 
     # Ensure we are on the main branch (not detached HEAD from git reset --hard)
     & git -C $RepoPath checkout main 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        # Branch may not exist locally - create it tracking origin/main
+        Write-Log "checkout main failed - creating local main from origin/main" "WARN"
+        & git -C $RepoPath fetch origin 2>&1 | Out-Null
+        & git -C $RepoPath checkout -B main origin/main 2>&1 | Out-Null
+        Write-Log "checkout -B main origin/main exit code: $LASTEXITCODE"
+    }
 
     # Stash any local uncommitted changes so pull can proceed cleanly
     $stashOut = & git -C $RepoPath stash 2>&1
