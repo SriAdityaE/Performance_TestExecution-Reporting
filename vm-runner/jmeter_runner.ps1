@@ -130,7 +130,7 @@ function Invoke-GitPull {
 
     $out = & git -C $RepoPath pull 2>$null
     $pullOk = ($LASTEXITCODE -eq 0)
-    Write-Log "git pull exit=$LASTEXITCODE: $($out -join ' ')"
+    Write-Log "git pull exit=$($LASTEXITCODE): $($out -join ' ')"
 
     if ($pullOk) {
         if ($hadStash) {
@@ -161,7 +161,7 @@ function Invoke-GitPush {
         $commitOut = & git -C $RepoPath commit -m $Message 2>$null
         if ($LASTEXITCODE -eq 0) {
             $pushOut = & git -C $RepoPath push 2>$null
-            Write-Log "git push exit=$LASTEXITCODE"
+            Write-Log "git push exit=$($LASTEXITCODE)"
         } else {
             Write-Log "git commit (nothing to commit or error): $commitOut"
         }
