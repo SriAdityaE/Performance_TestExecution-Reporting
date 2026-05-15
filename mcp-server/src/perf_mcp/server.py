@@ -112,13 +112,19 @@ def _git_push(repo_path: Path, message: str) -> None:
             text=True,
             timeout=15,
         )
-        # Exit code 1 with 'nothing to commit' is not an error
+        # Only skip push if there was genuinely nothing to commit
         nothing_to_commit = (
             "nothing to commit" in commit.stdout
             or "nothing to commit" in commit.stderr
         )
-        if nothing_to_commit or commit.returncode == 1:
+        if nothing_to_commit:
+            logger.info("git commit: nothing to commit for '%s'", message)
             return
+        if commit.returncode != 0:
+            logger.warning("git commit failed (rc=%d): %s | %s", commit.returncode, commit.stdout.strip(), commit.stderr.strip())
+            _notify(f"[{_ts()}] ⚠️  GIT COMMIT FAILED — rc={commit.returncode} | {commit.stderr.strip()[:120]}")
+            return
+        _notify(f"[{_ts()}] 📋 GIT COMMITTED — {message}")
         push = subprocess.run(
             ["git", "push"],
             cwd=str(repo_path),
@@ -128,8 +134,12 @@ def _git_push(repo_path: Path, message: str) -> None:
         )
         if push.returncode != 0:
             logger.warning("git push failed: %s", push.stderr.strip())
+            _notify(f"[{_ts()}] ⚠️  GIT PUSH FAILED — {push.stderr.strip()[:120]}")
+        else:
+            _notify(f"[{_ts()}] ✅ GIT PUSHED — {message}")
     except Exception as exc:
         logger.warning("git push skipped (non-fatal): %s", exc)
+        _notify(f"[{_ts()}] ⚠️  GIT PUSH SKIPPED — {exc}")
 
 
 def _notify(msg: str) -> None:

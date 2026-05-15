@@ -1,0 +1,10 @@
+{
+  "job_id": "19-20-55_Inspect_JmeLoadtest_o8wr7l",
+  "test_name": "Inspect_JmeLoadtest",
+  "script_path_on_vm": "L:\\Latest_Script_Sqlserver\\Xinsepect_RDS_SQL&BabelfishTestplan_Latest_07_21.jmx",
+  "round": 1,
+  "day_folder": "2026-05-15_Round1_19-20-55",
+  "created_at": "2026-05-15T19:20:55.550448",
+  "notification_channel": "slack",
+  "status": "queued"
+}
