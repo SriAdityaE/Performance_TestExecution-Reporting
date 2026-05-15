@@ -385,7 +385,7 @@ while ($true) {
     $processStartInfo.RedirectStandardOutput = $true
     $processStartInfo.RedirectStandardError  = $true
     $processStartInfo.UseShellExecute        = $false
-    $processStartInfo.CreateNoWindow         = $false   # Visible Command Prompt window (FR-009-7)
+    $processStartInfo.CreateNoWindow         = $true    # Must be true when redirecting stdout/stderr — prevents cmd.exe spawning detached window
 
     $jmeterProcess = New-Object System.Diagnostics.Process
     $jmeterProcess.StartInfo = $processStartInfo
@@ -443,6 +443,9 @@ while ($true) {
         Write-Heartbeat -JobId $JobId -ResultFolder $ResultFolder -ElapsedSeconds $elapsedSec -JMeterRunning $true
         Write-Log "HEARTBEAT - Elapsed: $([Math]::Floor($elapsedSec / 60)) min | JMeter running (PID $($jmeterProcess.Id))"
     }
+
+    # Ensure all async output is flushed before reading ExitCode
+    $jmeterProcess.WaitForExit()
 
     # Final heartbeat after exit
     $testEndTime = Get-Date
