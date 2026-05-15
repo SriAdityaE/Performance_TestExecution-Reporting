@@ -51,7 +51,7 @@ from .models import (
     StartTestExecutionInput,
     StartTestExecutionOutput,
 )
-from .notifier import send_report_notification
+from .notifier import send_report_notification, send_test_completed_notification, send_test_started_notification
 from .report_generator import generate_html_report
 
 # Load .env from mcp-server directory (safe — file is in .gitignore)
@@ -515,6 +515,15 @@ def start_test_execution(
         f"Waiting for VM runner to pick up job..."
     )
 
+    # Slack/Teams: notify test started
+    send_test_started_notification(
+        notification_channel=inp.notification_channel,
+        test_name=inp.test_name,
+        job_id=job_id,
+        round_number=round_number,
+        script_path=inp.script_path_on_vm,
+    )
+
     # --- Monitoring loop ---
     monitoring_mode = "heartbeat_only"
     start_time = time.monotonic()
@@ -563,19 +572,23 @@ def start_test_execution(
         if current_status == "completed":
             # Read completion metrics
             summary_data = _read_json_file(result_folder / "summary.json")
-            if summary_data:
-                metrics = _kpi_from_summary(summary_data)
-                if metrics:
-                    _notify(
-                        f"[{_ts()}] ✅ TEST COMPLETED — "
-                        f"Requests: {metrics.total_requests:,} | "
-                        f"Errors: {metrics.error_rate_pct:.2f}% | "
-                        f"Avg: {metrics.avg_response_ms:.0f}ms"
-                    )
-                else:
-                    _notify(f"[{_ts()}] ✅ TEST COMPLETED — Job: {job_id}")
+            metrics = _kpi_from_summary(summary_data) if summary_data else None
+            if metrics:
+                _notify(
+                    f"[{_ts()}] ✅ TEST COMPLETED — "
+                    f"Requests: {metrics.total_requests:,} | "
+                    f"Errors: {metrics.error_rate_pct:.2f}% | "
+                    f"Avg: {metrics.avg_response_ms:.0f}ms"
+                )
             else:
                 _notify(f"[{_ts()}] ✅ TEST COMPLETED — Job: {job_id}")
+            # Slack/Teams: notify test completed with metrics
+            send_test_completed_notification(
+                notification_channel=inp.notification_channel,
+                test_name=inp.test_name,
+                job_id=job_id,
+                metrics=metrics,
+            )
             final_status = "completed"
             break
 
@@ -902,6 +915,7 @@ def generate_daily_report(
         avg_response_trend=trend,
         error_rate=avg_error,
         report_path=html_path,
+        round_summaries=round_summaries,
     )
 
     notification_status_dict = {
