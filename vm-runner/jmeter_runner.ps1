@@ -103,8 +103,7 @@ function Write-Log {
 function Invoke-GitPull {
     <#
     .SYNOPSIS Pull latest jobs from GitHub. Non-fatal on failure.
-              Stashes local changes before pulling to avoid rebase conflicts
-              (e.g., heartbeat.json or in-flight queue file moves).
+              Stashes local changes before pulling to avoid rebase conflicts.
               Falls back to fetch + hard reset if pull still fails.
     .PARAMETER RepoPath Root path of the git repository.
     #>
@@ -112,24 +111,23 @@ function Invoke-GitPull {
 
     # Stash any local uncommitted changes so pull can proceed cleanly
     $stashOut = & git -C $RepoPath stash 2>&1
-    $hadStash = ($stashOut -join "") -notmatch "No local changes to save"
+    $stashStr = $stashOut -join " "
+    $hadStash = $stashStr -notmatch "No local changes to save"
 
     $out = & git -C $RepoPath pull 2>&1
     $pullOk = ($LASTEXITCODE -eq 0)
     Write-Log "git pull: $($out -join ' ')"
 
     if ($pullOk) {
-        # Restore stashed changes (e.g., partially-written heartbeat.json)
         if ($hadStash) {
             & git -C $RepoPath stash pop 2>&1 | Out-Null
         }
     } else {
-        # Last resort: hard-reset to origin/main so queue is always in sync
-        Write-Log "WARNING: git pull failed — attempting hard reset to origin/main" "WARN"
+        Write-Log "WARNING: git pull failed - attempting hard reset to origin/main" "WARN"
         & git -C $RepoPath fetch origin main 2>&1 | Out-Null
         & git -C $RepoPath reset --hard origin/main 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Log "Hard reset to origin/main completed — local state synced."
+            Write-Log "Hard reset to origin/main completed - local state synced."
         } else {
             Write-Log "WARNING: Hard reset also failed (non-fatal)" "WARN"
         }
@@ -407,7 +405,7 @@ while ($true) {
     $processStartInfo.RedirectStandardOutput = $true
     $processStartInfo.RedirectStandardError  = $true
     $processStartInfo.UseShellExecute        = $false
-    $processStartInfo.CreateNoWindow         = $true    # Must be true when redirecting stdout/stderr — prevents cmd.exe spawning detached window
+    $processStartInfo.CreateNoWindow         = $true    # Must be true when redirecting stdout/stderr - prevents cmd.exe spawning detached window
 
     $jmeterProcess = New-Object System.Diagnostics.Process
     $jmeterProcess.StartInfo = $processStartInfo
