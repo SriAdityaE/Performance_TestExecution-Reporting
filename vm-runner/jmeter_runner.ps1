@@ -435,6 +435,13 @@ while ($true) {
         $jmeterProcess.Start() | Out-Null
         $jmeterProcess.BeginOutputReadLine()
         $jmeterProcess.BeginErrorReadLine()
+
+        # Open a visible PowerShell window on the VM that live-tails runner_live.log
+        # This satisfies FR-009-7: all activity visible in Command Prompt window on VM
+        $tailTitle = "JMeter Live Output - $JobId"
+        $tailCmd   = "& { `$host.UI.RawUI.WindowTitle = '$tailTitle'; Get-Content -Path '$LiveLogPath' -Wait -Tail 50 }"
+        Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-Command", $tailCmd -WindowStyle Normal
+        Write-Log "JMeter live-output window opened (tailing runner_live.log)"
     } catch {
         Write-Log "ERROR: Failed to start JMeter process: $_" "ERROR"
         Write-Metadata -ResultFolder $ResultFolder -Data @{
