@@ -108,6 +108,8 @@ function Invoke-GitPull {
     .PARAMETER RepoPath Root path of the git repository.
     #>
     param([string]$RepoPath)
+    # git writes informational lines to stderr; Stop preference would terminate the script.
+    $ErrorActionPreference = "Continue"
 
     # Ensure we are on the main branch (not detached HEAD from git reset --hard)
     & git -C $RepoPath checkout main 2>&1 | Out-Null
@@ -151,6 +153,7 @@ function Invoke-GitPush {
     .PARAMETER Message  Git commit message.
     #>
     param([string]$RepoPath, [string]$Message)
+    $ErrorActionPreference = "Continue"
     try {
         & git -C $RepoPath add -A 2>&1 | Out-Null
         $commitOut = & git -C $RepoPath commit -m $Message 2>&1
