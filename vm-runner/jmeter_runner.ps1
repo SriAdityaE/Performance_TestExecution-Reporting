@@ -109,27 +109,29 @@ function Invoke-GitPull {
     .PARAMETER RepoPath Root path of the git repository.
     #>
     param([string]$RepoPath)
-    try {
-        # Stash any local uncommitted changes so pull can proceed cleanly
-        $stashOut = & git -C $RepoPath stash 2>&1
-        $hadStash = ($stashOut -join "") -notmatch "No local changes to save"
 
-        $out = & git -C $RepoPath pull 2>&1
-        Write-Log "git pull: $($out -join ' ')"
+    # Stash any local uncommitted changes so pull can proceed cleanly
+    $stashOut = & git -C $RepoPath stash 2>&1
+    $hadStash = ($stashOut -join "") -notmatch "No local changes to save"
 
+    $out = & git -C $RepoPath pull 2>&1
+    $pullOk = ($LASTEXITCODE -eq 0)
+    Write-Log "git pull: $($out -join ' ')"
+
+    if ($pullOk) {
         # Restore stashed changes (e.g., partially-written heartbeat.json)
         if ($hadStash) {
             & git -C $RepoPath stash pop 2>&1 | Out-Null
         }
-    } catch {
+    } else {
         # Last resort: hard-reset to origin/main so queue is always in sync
-        Write-Log "WARNING: git pull failed — attempting hard reset to origin/main: $_" "WARN"
-        try {
-            & git -C $RepoPath fetch origin main 2>&1 | Out-Null
-            & git -C $RepoPath reset --hard origin/main 2>&1 | Out-Null
+        Write-Log "WARNING: git pull failed — attempting hard reset to origin/main" "WARN"
+        & git -C $RepoPath fetch origin main 2>&1 | Out-Null
+        & git -C $RepoPath reset --hard origin/main 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
             Write-Log "Hard reset to origin/main completed — local state synced."
-        } catch {
-            Write-Log "WARNING: Hard reset also failed (non-fatal): $_" "WARN"
+        } else {
+            Write-Log "WARNING: Hard reset also failed (non-fatal)" "WARN"
         }
     }
 }
